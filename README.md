@@ -6,13 +6,10 @@ Reusable automation for personal GitHub repositories.
 
 Run the setup script from a repository. It copies
 `.github/workflows/codex-issue.yml` into that repository, configures the API key,
-and creates the `codex-pr` label. When the repository owner adds that label to
-one of their own issues, the workflow asks Codex to implement it, commits any
-resulting changes to a new branch, and opens a pull request for review.
-
-The repository must allow GitHub Actions to create pull requests. In the
-repository settings, enable **Actions > General > Workflow permissions > Allow
-GitHub Actions to create and approve pull requests**.
+creates the `codex-pr` label, and allows GitHub Actions to create pull requests.
+When the repository owner adds that label to one of their own issues, the
+workflow asks Codex to implement it, commits any resulting changes to a new
+branch, and opens a pull request for review.
 
 Set up the workflow from inside the target repository:
 
@@ -30,6 +27,11 @@ The script refuses to overwrite a different existing workflow. It stores the
 API key as the GitHub Actions secret `OPEN_API_KEY_SECRET`; it does not write
 the key to disk. Review and commit the installed workflow in the target
 repository after setup.
+
+The GitHub CLI login must have repository administration permission so setup
+can enable **Actions > General > Workflow permissions > Allow GitHub Actions to
+create and approve pull requests**. The script preserves the repository's
+existing default workflow permission (`read` or `write`).
 
 Only an issue authored by the repository owner and labeled by the repository
 owner can trigger the job. Codex runs with workspace write access, while the

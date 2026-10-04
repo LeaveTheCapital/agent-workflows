@@ -77,5 +77,19 @@ gh label create codex-pr \
   --description "Ask Codex to implement this issue" \
   --force
 
+default_workflow_permissions=$(gh api \
+  -H "X-GitHub-Api-Version: 2026-03-10" \
+  "repos/$repository/actions/permissions/workflow" \
+  --jq .default_workflow_permissions)
+
+gh api \
+  --method PUT \
+  -H "X-GitHub-Api-Version: 2026-03-10" \
+  "repos/$repository/actions/permissions/workflow" \
+  -f "default_workflow_permissions=$default_workflow_permissions" \
+  -F can_approve_pull_request_reviews=true \
+  >/dev/null
+
 echo "Configured $SECRET_NAME for $repository."
 echo "Created or updated the codex-pr label."
+echo "Allowed GitHub Actions to create and approve pull requests."
