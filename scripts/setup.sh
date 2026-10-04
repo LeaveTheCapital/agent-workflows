@@ -3,13 +3,15 @@
 set -euo pipefail
 
 readonly SECRET_NAME="OPEN_API_KEY_SECRET"
+readonly WORKFLOW_NAME="codex-issue.yml"
 
 usage() {
   cat <<'EOF'
-Usage: setup.sh [OWNER/REPOSITORY]
+Usage: setup.sh [TARGET_DIRECTORY]
 
-Adds OPEN_API_KEY_SECRET to a GitHub repository. When no repository is given,
-the repository for the current directory is used.
+Installs the Codex issue workflow and adds OPEN_API_KEY_SECRET to the target
+GitHub repository. TARGET_DIRECTORY defaults to the current directory and must
+be inside a Git repository with a GitHub remote.
 
 Set OPENAI_API_KEY before running to avoid an interactive prompt:
   OPENAI_API_KEY=sk-... /path/to/agent-workflows/scripts/setup.sh
@@ -33,9 +35,29 @@ fi
 
 gh auth status >/dev/null
 
-repository=${1:-}
-if [[ -z $repository ]]; then
-  repository=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+target_directory=${1:-.}
+if ! target_root=$(git -C "$target_directory" rev-parse --show-toplevel 2>/dev/null); then
+  echo "error: $target_directory is not inside a Git repository" >&2
+  exit 1
+fi
+
+repository=$(cd -- "$target_root" && gh repo view --json nameWithOwner --jq .nameWithOwner)
+
+script_directory=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+source_workflow="$script_directory/../.github/workflows/$WORKFLOW_NAME"
+target_workflow="$target_root/.github/workflows/$WORKFLOW_NAME"
+
+if [[ -e $target_workflow ]] && ! cmp -s "$source_workflow" "$target_workflow"; then
+  echo "error: $target_workflow already exists and differs from this template" >&2
+  exit 1
+fi
+
+if [[ ! -e $target_workflow ]]; then
+  mkdir -p "$(dirname -- "$target_workflow")"
+  cp "$source_workflow" "$target_workflow"
+  echo "Installed $target_workflow."
+else
+  echo "Workflow already up to date at $target_workflow."
 fi
 
 api_key=${OPENAI_API_KEY:-}
@@ -50,4 +72,10 @@ if [[ -z $api_key ]]; then
 fi
 
 printf '%s' "$api_key" | gh secret set "$SECRET_NAME" --repo "$repository"
+gh label create codex-pr \
+  --repo "$repository" \
+  --description "Ask Codex to implement this issue" \
+  --force
+
 echo "Configured $SECRET_NAME for $repository."
+echo "Created or updated the codex-pr label."
