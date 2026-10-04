@@ -1,0 +1,90 @@
+name: Codex issue to pull request
+
+on:
+  issues:
+    types: [labeled]
+
+concurrency:
+  group: codex-issue-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  implement:
+    name: Implement issue
+    if: >-
+      github.event.label.name == 'codex-pr' &&
+      github.event.sender.login == github.repository_owner &&
+      github.event.issue.user.login == github.repository_owner
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Check out the default branch
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      - name: Create working branch
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          branch="codex/issue-${ISSUE_NUMBER}-${RUN_ID}"
+          git switch -c "$branch"
+          echo "CODEX_BRANCH=$branch" >> "$GITHUB_ENV"
+
+      - name: Implement the issue with Codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPEN_API_KEY_SECRET }}
+          sandbox: workspace-write
+          prompt: |
+            Implement GitHub issue #${{ github.event.issue.number }} in this repository.
+
+            Issue title:
+            ${{ github.event.issue.title }}
+
+            Issue body:
+            ${{ github.event.issue.body }}
+
+            Read the repository instructions and relevant code before changing anything.
+            Make the smallest complete change that satisfies the issue, and run the most
+            relevant available checks. Do not create a branch, commit, push, or open a pull
+            request; the workflow will handle those steps. Do not modify files solely to
+            describe your work.
+
+      - name: Open pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          if [[ -z $(git status --porcelain) ]]; then
+            gh issue comment "$ISSUE_NUMBER" \
+              --repo "$REPOSITORY" \
+              --body "Codex completed the task but did not produce any file changes."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add --all
+          git commit -m "Implement #${ISSUE_NUMBER}: ${ISSUE_TITLE}"
+          git push --set-upstream origin "$CODEX_BRANCH"
+
+          gh pr create \
+            --repo "$REPOSITORY" \
+            --base "${{ github.event.repository.default_branch }}" \
+            --head "$CODEX_BRANCH" \
+            --title "${ISSUE_TITLE}" \
+            --body-file - <<EOF
+          Implemented by Codex from #${ISSUE_NUMBER}.
+
+          Closes #${ISSUE_NUMBER}.
+          EOF
