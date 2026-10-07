@@ -1,0 +1,20 @@
+name: Agent issue to pull request
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  implement:
+    name: Implement issue
+    if: >-
+      github.event.label.name == 'agent-pr' &&
+      github.event.sender.login == github.repository_owner &&
+      github.event.issue.user.login == github.repository_owner
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    uses: LeaveTheCapital/agent-workflows/.github/workflows/issue-to-pr.yml@main
+    secrets:
+      OPEN_API_KEY_SECRET: ${{ secrets.OPEN_API_KEY_SECRET }}

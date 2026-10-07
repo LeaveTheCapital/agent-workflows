@@ -3,7 +3,9 @@
 set -euo pipefail
 
 readonly SECRET_NAME="OPEN_API_KEY_SECRET"
-readonly WORKFLOW_NAME="codex-issue.yml"
+readonly LABEL_NAME="agent-pr"
+readonly WORKFLOW_NAME="issue-to-pr.yml"
+readonly LEGACY_WORKFLOW_NAME="codex-issue.yml"
 
 usage() {
   cat <<'EOF'
@@ -44,8 +46,15 @@ fi
 repository=$(cd -- "$target_root" && gh repo view --json nameWithOwner --jq .nameWithOwner)
 
 script_directory=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-source_workflow="$script_directory/../.github/workflows/$WORKFLOW_NAME"
+source_workflow="$script_directory/../templates/$WORKFLOW_NAME"
 target_workflow="$target_root/.github/workflows/$WORKFLOW_NAME"
+legacy_target_workflow="$target_root/.github/workflows/$LEGACY_WORKFLOW_NAME"
+
+if [[ -e $legacy_target_workflow ]]; then
+  echo "error: legacy workflow exists at $legacy_target_workflow" >&2
+  echo "migrate or remove it before installing $WORKFLOW_NAME to avoid duplicate runs" >&2
+  exit 1
+fi
 
 if [[ -e $target_workflow ]] && ! cmp -s "$source_workflow" "$target_workflow"; then
   echo "error: $target_workflow already exists and differs from this template" >&2
@@ -72,9 +81,9 @@ if [[ -z $api_key ]]; then
 fi
 
 printf '%s' "$api_key" | gh secret set "$SECRET_NAME" --repo "$repository"
-gh label create codex-pr \
+gh label create "$LABEL_NAME" \
   --repo "$repository" \
-  --description "Ask Codex to implement this issue" \
+  --description "Ask the configured coding agent to implement this issue" \
   --force
 
 default_workflow_permissions=$(gh api \
@@ -91,5 +100,5 @@ gh api \
   >/dev/null
 
 echo "Configured $SECRET_NAME for $repository."
-echo "Created or updated the codex-pr label."
+echo "Created or updated the $LABEL_NAME label."
 echo "Allowed GitHub Actions to create and approve pull requests."

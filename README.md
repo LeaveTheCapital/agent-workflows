@@ -2,14 +2,24 @@
 
 Reusable automation for personal GitHub repositories.
 
-## Codex issue workflow
+## Issue-to-PR workflow
 
-Run the setup script from a repository. It copies
-`.github/workflows/codex-issue.yml` into that repository, configures the API key,
-creates the `codex-pr` label, and allows GitHub Actions to create pull requests.
-When the repository owner adds that label to one of their own issues, the
-workflow asks Codex to implement it, commits any resulting changes to a new
-branch, and opens a pull request for review.
+The implementation lives in the reusable workflow at
+`.github/workflows/issue-to-pr.yml`. Target repositories contain only a small
+caller workflow, so improvements to the implementation can be made here once.
+The public names describe the outcome rather than the current agent provider:
+the trigger label is `agent-pr`, and working branches use the `agent/` prefix.
+The current implementation uses Codex and an OpenAI API key.
+
+Before using the workflow from another private repository, open this
+repository's **Settings > Actions > General** page. Under **Access**, select
+**Accessible from repositories owned by 'LeaveTheCapital' user**.
+
+Run the setup script from a target repository. It installs the caller workflow,
+configures the API key, creates the `agent-pr` label, and allows GitHub Actions
+to create pull requests. When the repository owner adds that label to one of
+their own issues, the reusable workflow asks Codex to implement it, commits any
+resulting changes to a new branch, and opens a pull request for review.
 
 Set up the workflow from inside the target repository:
 
@@ -23,10 +33,12 @@ Or pass a local target repository directory explicitly:
 OPENAI_API_KEY=sk-... ./scripts/setup.sh /path/to/target-repository
 ```
 
-The script refuses to overwrite a different existing workflow. It stores the
-API key as the GitHub Actions secret `OPEN_API_KEY_SECRET`; it does not write
-the key to disk. Review and commit the installed workflow in the target
-repository after setup.
+The script refuses to overwrite a different existing workflow. Existing
+repositories that contain the old copied implementation must be migrated
+deliberately rather than overwritten. The script stores the API key as the
+GitHub Actions secret `OPEN_API_KEY_SECRET`; it does not write the key to disk.
+Review and commit the installed caller workflow in the target repository after
+setup.
 
 The GitHub CLI login must have repository administration permission so setup
 can enable **Actions > General > Workflow permissions > Allow GitHub Actions to

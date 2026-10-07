@@ -1,18 +1,23 @@
-name: Codex issue to pull request
+name: Agent issue to pull request
 
 on:
   issues:
     types: [labeled]
+  workflow_call:
+    secrets:
+      OPEN_API_KEY_SECRET:
+        description: OpenAI API key used by the current Codex implementation
+        required: true
 
 concurrency:
-  group: codex-issue-${{ github.event.issue.number }}
+  group: agent-issue-${{ github.event.issue.number }}
   cancel-in-progress: false
 
 jobs:
   implement:
     name: Implement issue
     if: >-
-      github.event.label.name == 'codex-pr' &&
+      github.event.label.name == 'agent-pr' &&
       github.event.sender.login == github.repository_owner &&
       github.event.issue.user.login == github.repository_owner
     runs-on: ubuntu-latest
@@ -34,9 +39,9 @@ jobs:
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           RUN_ID: ${{ github.run_id }}
         run: |
-          branch="codex/issue-${ISSUE_NUMBER}-${RUN_ID}"
+          branch="agent/issue-${ISSUE_NUMBER}-${RUN_ID}"
           git switch -c "$branch"
-          echo "CODEX_BRANCH=$branch" >> "$GITHUB_ENV"
+          echo "AGENT_BRANCH=$branch" >> "$GITHUB_ENV"
 
       - name: Implement the issue with Codex
         uses: openai/codex-action@v1
@@ -70,7 +75,7 @@ jobs:
           if [[ -z $(git status --porcelain) ]]; then
             gh issue comment "$ISSUE_NUMBER" \
               --repo "$REPOSITORY" \
-              --body "Codex completed the task but did not produce any file changes."
+              --body "The coding agent completed the task but did not produce any file changes."
             exit 0
           fi
 
@@ -78,15 +83,15 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add --all
           git commit -m "Implement #${ISSUE_NUMBER}: ${ISSUE_TITLE}"
-          git push --set-upstream origin "$CODEX_BRANCH"
+          git push --set-upstream origin "$AGENT_BRANCH"
 
           gh pr create \
             --repo "$REPOSITORY" \
             --base "${{ github.event.repository.default_branch }}" \
-            --head "$CODEX_BRANCH" \
+            --head "$AGENT_BRANCH" \
             --title "${ISSUE_TITLE}" \
             --body-file - <<EOF
-          Implemented by Codex from #${ISSUE_NUMBER}.
+          Automated implementation for #${ISSUE_NUMBER}.
 
           Closes #${ISSUE_NUMBER}.
           EOF
