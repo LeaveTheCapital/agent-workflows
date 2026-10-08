@@ -10,6 +10,9 @@ on:
       OPEN_API_KEY_SECRET:
         description: OpenAI API key used by the current Codex implementation
         required: true
+      AGENT_GITHUB_TOKEN:
+        description: Optional user token that lets agent PRs trigger workflows automatically
+        required: false
 
 concurrency:
   group: agent-issue-${{ github.event.issue.number }}
@@ -36,6 +39,8 @@ jobs:
         with:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
+          token: ${{ secrets.AGENT_GITHUB_TOKEN || github.token }}
+          persist-credentials: false
 
       - name: Create working branch
         env:
@@ -70,7 +75,7 @@ jobs:
 
       - name: Open pull request
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.AGENT_GITHUB_TOKEN || github.token }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           REPOSITORY: ${{ github.repository }}
@@ -86,6 +91,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add --all
           git commit -m "Implement #${ISSUE_NUMBER}: ${ISSUE_TITLE}"
+          gh auth setup-git --hostname github.com --force
           git push --set-upstream origin "$AGENT_BRANCH"
 
           gh pr create \
@@ -118,7 +124,7 @@ jobs:
       - name: Validate the pull request
         id: pull_request
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.AGENT_GITHUB_TOKEN || github.token }}
           PR_NUMBER: ${{ github.event.issue.number }}
           REPOSITORY: ${{ github.repository }}
         run: |
@@ -149,6 +155,8 @@ jobs:
         with:
           ref: ${{ steps.pull_request.outputs.branch }}
           fetch-depth: 0
+          token: ${{ secrets.AGENT_GITHUB_TOKEN || github.token }}
+          persist-credentials: false
 
       - name: Address the feedback with Codex
         uses: openai/codex-action@v1
@@ -179,7 +187,7 @@ jobs:
       - name: Push the update
         env:
           AGENT_BRANCH: ${{ steps.pull_request.outputs.branch }}
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.AGENT_GITHUB_TOKEN || github.token }}
           PR_NUMBER: ${{ github.event.issue.number }}
           REPOSITORY: ${{ github.repository }}
         run: |
@@ -194,6 +202,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add --all
           git commit -m "Address feedback on #${PR_NUMBER}"
+          gh auth setup-git --hostname github.com --force
           git push origin "HEAD:${AGENT_BRANCH}"
 
           commit_sha=$(git rev-parse --short HEAD)

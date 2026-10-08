@@ -47,6 +47,21 @@ GitHub Actions secret `OPEN_API_KEY_SECRET`; it does not write the key to disk.
 Review and commit the installed caller workflow in the target repository after
 setup.
 
+By default, GitHub requires owner approval before running checks on pull
+requests created or updated with `GITHUB_TOKEN`. To run those checks
+automatically, provide an optional GitHub App or personal access token when
+running setup:
+
+```sh
+AGENT_GITHUB_TOKEN="$(gh auth token)" OPENAI_API_KEY=sk-... \
+  ./scripts/setup.sh /path/to/target-repository
+```
+
+The script stores it as the `AGENT_GITHUB_TOKEN` Actions secret. The reusable
+workflow uses it only for GitHub API calls and Git pushes; checkout credentials
+are not persisted while the coding agent runs. Without this secret, the
+workflow falls back to the repository's `GITHUB_TOKEN`.
+
 The GitHub CLI login must have repository administration permission so setup
 can enable **Actions > General > Workflow permissions > Allow GitHub Actions to
 create and approve pull requests**. The script preserves the repository's

@@ -26,3 +26,4 @@ jobs:
     uses: LeaveTheCapital/agent-workflows/.github/workflows/issue-to-pr.yml@main
     secrets:
       OPEN_API_KEY_SECRET: ${{ secrets.OPEN_API_KEY_SECRET }}
+      AGENT_GITHUB_TOKEN: ${{ secrets.AGENT_GITHUB_TOKEN }}

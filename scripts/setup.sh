@@ -3,6 +3,7 @@
 set -euo pipefail
 
 readonly SECRET_NAME="OPEN_API_KEY_SECRET"
+readonly AGENT_TOKEN_SECRET_NAME="AGENT_GITHUB_TOKEN"
 readonly LABEL_NAME="agent-pr"
 readonly WORKFLOW_NAME="issue-to-pr.yml"
 readonly LEGACY_WORKFLOW_NAME="codex-issue.yml"
@@ -17,6 +18,11 @@ be inside a Git repository with a GitHub remote.
 
 Set OPENAI_API_KEY before running to avoid an interactive prompt:
   OPENAI_API_KEY=sk-... /path/to/agent-workflows/scripts/setup.sh
+
+Optionally set AGENT_GITHUB_TOKEN to a GitHub App or personal access token so
+pull requests created by the agent trigger other workflows without approval:
+  AGENT_GITHUB_TOKEN="$(gh auth token)" OPENAI_API_KEY=sk-... \
+    /path/to/agent-workflows/scripts/setup.sh
 EOF
 }
 
@@ -81,6 +87,13 @@ if [[ -z $api_key ]]; then
 fi
 
 printf '%s' "$api_key" | gh secret set "$SECRET_NAME" --repo "$repository"
+
+agent_github_token=${AGENT_GITHUB_TOKEN:-}
+if [[ -n $agent_github_token ]]; then
+  printf '%s' "$agent_github_token" |
+    gh secret set "$AGENT_TOKEN_SECRET_NAME" --repo "$repository"
+fi
+
 gh label create "$LABEL_NAME" \
   --repo "$repository" \
   --description "Ask the configured coding agent to implement this issue" \
@@ -100,5 +113,8 @@ gh api \
   >/dev/null
 
 echo "Configured $SECRET_NAME for $repository."
+if [[ -n $agent_github_token ]]; then
+  echo "Configured $AGENT_TOKEN_SECRET_NAME for $repository."
+fi
 echo "Created or updated the $LABEL_NAME label."
 echo "Allowed GitHub Actions to create and approve pull requests."
