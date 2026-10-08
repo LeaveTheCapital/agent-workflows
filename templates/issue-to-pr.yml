@@ -3,14 +3,22 @@ name: Agent issue to pull request
 on:
   issues:
     types: [labeled]
+  issue_comment:
+    types: [created]
 
 jobs:
-  implement:
-    name: Implement issue
+  run-agent:
+    name: Run agent workflow
     if: >-
-      github.event.label.name == 'agent-pr' &&
-      github.event.sender.login == github.repository_owner &&
-      github.event.issue.user.login == github.repository_owner
+      (github.event_name == 'issues' &&
+       github.event.label.name == 'agent-pr' &&
+       github.event.sender.login == github.repository_owner &&
+       github.event.issue.user.login == github.repository_owner) ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request != null &&
+       github.event.sender.login == github.repository_owner &&
+       (github.event.comment.body == '/agent' ||
+        startsWith(github.event.comment.body, '/agent ')))
     permissions:
       contents: write
       issues: write
